@@ -1,0 +1,153 @@
+public static boolean isHornALCHOIQ(OWLAxioms axioms, String reportFilePath) throws FileNotFoundException {
+
+		ArrayList<String> nonHornALCHOIQAxiomsReport = new ArrayList<String>();
+
+		Set<OWLClassExpression[]> nonHornALCHOIQConceptInclusions = retrieveNonHornALCHOIQConceptInclusions(axioms.m_conceptInclusions, reportFilePath);
+
+		if (!nonHornALCHOIQConceptInclusions.isEmpty()) {
+			nonHornALCHOIQAxiomsReport.add("Non Horn ALCHOIQ Complex Inclusions");
+			for (OWLClassExpression[] nonHornALCHOIQConceptInclusion : nonHornALCHOIQConceptInclusions)
+				nonHornALCHOIQAxiomsReport.add(Srd.hermitGCIToString(nonHornALCHOIQConceptInclusion));
+			System.out.println();
+		}
+
+		if (!axioms.m_complexObjectPropertyInclusions.isEmpty()) {
+			nonHornALCHOIQAxiomsReport.add("Complex Role Inclusions");
+			for (ComplexObjectPropertyInclusion complexRoleInclusion : axioms.m_complexObjectPropertyInclusions)
+				nonHornALCHOIQAxiomsReport.add(Srd.hermitComplexPropertyInclusionToString(complexRoleInclusion));
+			nonHornALCHOIQAxiomsReport.add("");
+		}
+
+		if (!axioms.m_disjointObjectProperties.isEmpty()) {
+			nonHornALCHOIQAxiomsReport.add("Disjoint Roles");
+			for (OWLObjectPropertyExpression[] disjointRolesAxiom : axioms.m_disjointObjectProperties)
+				nonHornALCHOIQAxiomsReport.add(Srd.hermitDisjointRoleAxiomToString(disjointRolesAxiom));
+			nonHornALCHOIQAxiomsReport.add("");
+		}
+
+		if (!axioms.m_irreflexiveObjectProperties.isEmpty()) {
+			nonHornALCHOIQAxiomsReport.add("Irreflexive Roles");
+			for (OWLObjectPropertyExpression irreflexiveRole : axioms.m_irreflexiveObjectProperties)
+				nonHornALCHOIQAxiomsReport.add(irreflexiveRole.toString());
+			nonHornALCHOIQAxiomsReport.add("");
+		}
+
+		if (!axioms.m_asymmetricObjectProperties.isEmpty()) {
+			nonHornALCHOIQAxiomsReport.add("Asymmetric Roles");
+			for (OWLObjectPropertyExpression asymmetricRole : axioms.m_asymmetricObjectProperties)
+				nonHornALCHOIQAxiomsReport.add(asymmetricRole.toString());
+			nonHornALCHOIQAxiomsReport.add("");
+		}
+
+		if (nonHornALCHOIQAxiomsReport.isEmpty())
+			return true;
+
+		Srd.writeReport(nonHornALCHOIQAxiomsReport, reportFilePath);
+		return false;
+	}
+
+	private static Set<OWLClassExpression[]> retrieveNonHornALCHOIQConceptInclusions(Collection<OWLClassExpression[]> hermitConceptInclusions, String reportFilePath)
+			throws FileNotFoundException {
+
+		Set<OWLClassExpression[]> nonHornALCHOIQConceptInclusions = new HashSet<OWLClassExpression[]>();
+
+		for (OWLClassExpression[] conceptInclusion : hermitConceptInclusions) {
+
+			int positiveClausesCount = 0;
+
+			for (OWLClassExpression conceptExpression : conceptInclusion) {
+				switch (Srd.encodeConceptExpressionIntoString(conceptExpression)) {
+				case "NegatedClassName":
+					// lnot A
+				case "UniversalBottom":
+					// forall R.Bot
+				case "UniversalNegatedClassName":
+					// forall R. lnot A
+				case "UniversalNegatedNominals":
+					// forall R. lnot ({a1} sqcup ... sqcup {an})
+					break;
+
+				case "ClassName":
+					// A
+				case "ExistentialTop":
+					// exists R.Top
+				case "ExistentialClassName":
+					// exists R.A
+				case "ExistentialNegatedClassName":
+					// exists R.lnot A
+				case "UniversalClassName":
+					// forall R.A
+					++positiveClausesCount;
+					break;
+
+				case "Nominals":
+					// {a1} sqcup ... sqcup {an}
+					positiveClausesCount += ((OWLObjectOneOf) conceptExpression).getIndividuals().size();
+					break;
+				case "ExistentialNominals":
+					// exists R.({a1} sqcup ... sqcup {an})
+				case "UniversalNominals":
+					// forall R.({a1} sqcup ... sqcup {an})
+					positiveClausesCount += ((OWLObjectOneOf) ((OWLQuantifiedObjectRestriction) conceptExpression).getFiller()).getIndividuals().size();
+					break;
+
+				case "atLeastTop":
+					// geq n R.Top
+				case "atLeastClassName":
+					// geq n R.A
+				case "atMostTop":
+					// leq n R.Top
+				case "atMostClassName":
+					// leq n R.A
+					positiveClausesCount += ((OWLObjectCardinalityRestriction) conceptExpression).getCardinality();
+					break;
+
+				case "Self":
+					// exists R.Self
+				case "NegatedSelf":
+					//	lnot R.Self
+					positiveClausesCount += 1143;
+					break;
+
+				default:
+					System.out.println("WARNING!!! Unrecognized OWLClassExpression at retrieveNonHornALCHOIQConceptInclusions at Filter.java." + "\n" + conceptExpression
+							+ "\n" + conceptExpression.getClassExpressionType() + "\n" + Srd.hermitGCIToString(conceptInclusion));
+					break;
+				}
+			}
+
+			if (positiveClausesCount > 1)
+				nonHornALCHOIQConceptInclusions.add(conceptInclusion);
+		}
+
+		return nonHornALCHOIQConceptInclusions;
+	}
+
+	
+		public static void writeReport(ArrayList<String> report, String reportFilePath) {
+		PrintWriter writer = null;
+		try {
+			writer = new PrintWriter(reportFilePath);
+		} catch (FileNotFoundException e) {
+			System.out.println("WARNING!!! Error while saving report.");
+		}
+		if (writer != null) {
+			for (String reportLine : report)
+				writer.println(reportLine);
+			writer.close();
+		}
+	}
+	
+		public static void writeReport(ArrayList<String> report, String reportFilePath) {
+		PrintWriter writer = null;
+		try {
+			writer = new PrintWriter(reportFilePath);
+		} catch (FileNotFoundException e) {
+			System.out.println("WARNING!!! Error while saving report.");
+		}
+		if (writer != null) {
+			for (String reportLine : report)
+				writer.println(reportLine);
+			writer.close();
+		}
+	}

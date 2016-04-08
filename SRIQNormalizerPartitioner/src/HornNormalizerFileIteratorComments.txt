@@ -1,0 +1,3 @@
+HornNormalizerFileIterator.java
+
+1. The program transforms concept expressions of the form geq n R.A into exists R.A and ditches non Horn axioms.
